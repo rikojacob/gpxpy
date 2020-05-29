@@ -1216,27 +1216,10 @@ class GPXTrackSegment:
 
     def get_nearest_location(self, location: mod_geo.Location) -> Optional[NearestLocationData]:
         """ Return the (location, track_point_no) on this track segment """
-        if not self.points:
+        if (self.points is None) or len(self.points) == 0:
             return None
-
-        result: Optional[GPXTrackPoint] = None
-        current_distance = None
-        result_track_point_no = None
-        for i in range(len(self.points)):
-            track_point = self.points[i]
-            if not result:
-                result = track_point
-            else:
-                distance = track_point.distance_2d(location)
-                #print current_distance, distance
-                if not current_distance or distance < current_distance:
-                    current_distance = distance
-                    result = track_point
-                    result_track_point_no = i
-
-        if result is not None and result_track_point_no is not None:
-            return NearestLocationData(result, -1, -1, result_track_point_no)
-        return None
+        result_track_point_no,result = min(enumerate(self.points), key=lambda x: x[1].distance_2d(location))
+        return NearestLocationData(result, -1, -1, result_track_point_no)
 
     def smooth(self, vertical: bool=True, horizontal: bool=False, remove_extremes: bool=False) -> None:
         """ "Smooths" the elevation graph. Can be called multiple times. """
