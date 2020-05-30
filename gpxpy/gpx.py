@@ -30,12 +30,6 @@ from typing import *
 
 log = mod_logging.getLogger(__name__)
 
-def myenumerate(L: List[Any]) -> Iterator[Any]:
-    for i,x in enumerate(L):
-        if x is not None:
-            yield i,x
-
-
 # GPX date format to be used when writing the GPX output:
 DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
@@ -1904,39 +1898,11 @@ class GPXTrack:
         if not self.segments:
             return None
 
-        allpoints= [ NearestLocationData(self.segments[seg].points[pt_no], -1, seg, pt_no) for
-                     seg in range(len(self.segments)) for pt_no in range(len(self.segments[seg].points)  if self.segments[seg].points else 0) ]
-        if len(allpoints) == 0:
-            return None
-        return min(allpoints,key=lambda x: x.location.distance_2d(location))
+        return min( (NearestLocationData(self.segments[seg].points[pt_no], -1, seg, pt_no) for
+                      seg in range(len(self.segments)) for pt_no in range(len(self.segments[seg].points)  if self.segments[seg].points else 0) )
+                    ,key=lambda x: x.location.distance_2d(location)
+                    ,default=None)
         
-                             
-    def get_nearest_location_x(self, location: mod_geo.Location) -> Optional[NearestLocationData]:
-        """ Returns (location, track_segment_no, track_point_no) for nearest location on track """
-        if not self.segments:
-            return None
-        
-        result: Optional[GPXTrackPoint] = None
-        distance: float = -1
-        result_track_segment_no: int = -1
-        result_track_point_no: int = -1
-
-        for i in range(len(self.segments)):
-            track_segment = self.segments[i]
-            nearest_loc_info = track_segment.get_nearest_location(location)
-            nearest_location_distance = None
-            if nearest_loc_info:
-                nearest_location_distance = nearest_loc_info.location.distance_2d(location)
-                if distance is not None and nearest_location_distance is not None and (distance < 0 or nearest_location_distance < distance):
-                    distance = nearest_location_distance
-                    result = nearest_loc_info.location
-                    result_track_segment_no = i
-                    result_track_point_no = nearest_loc_info.point_no
-
-        if result:
-            return NearestLocationData(result, -1, result_track_segment_no, result_track_point_no)
-        return None
-
     def clone(self) -> "GPXTrack":
         return mod_copy.deepcopy(self)
 
@@ -2556,51 +2522,9 @@ class GPX:
             return None
 
         return min((NearestLocationData(pt, tr, seg, pt_no) for (tr,(pt, _, seg, pt_no)) in
-                        myenumerate(trck.get_nearest_location(location) for trck in self.tracks) )
+                        filter(lambda p: p[1], enumerate(trck.get_nearest_location(location) for trck in self.tracks)) )
                    ,key=lambda x: x.location.distance_2d(location) if x is not None else float('INF')
                    ,default=None)
-
-    def get_nearest_location_y(self, location: mod_geo.Location) -> Optional[NearestLocationData]:
-        """ Returns (location, track_no, track_segment_no, track_point_no) for the
-        nearest location on map """
-        if not self.tracks:
-            return None
-
-        # allpoints= [ NearestLocationData(self.tracks[tr].segments[seg].points[pt_no], tr, seg, pt_no) for
-        #              tr in    range(len(self.tracks)) for 
-        #              seg in   range(len(self.tracks[tr].segments)) for
-        #              pt_no in range(len(self.tracks[tr].segments[seg].points))]
-        return min((NearestLocationData(pt, tr, seg, pt_no) for (pt, tr, seg, pt_no) in self.walk()
-                    ),key=lambda x: x.location.distance_2d(location),default=None)
-        
-
-    
-    def get_nearest_location_x(self, location: mod_geo.Location) -> Optional[NearestLocationData]:
-        """ Returns (location, track_no, track_segment_no, track_point_no) for the
-        nearest location on map """
-        if not self.tracks:
-            return None
-
-        result: Optional[GPXTrackPoint] = None
-        distance = None
-        result_track_no: int = -1
-        result_segment_no: int = -1
-        result_point_no: int = -1
-        for i in range(len(self.tracks)):
-            track = self.tracks[i]
-            nearest_loc_info = track.get_nearest_location(location)
-            if nearest_loc_info:
-                nearest_location_distance = nearest_loc_info.location.distance_2d(location)
-                if not distance or nearest_location_distance < distance:
-                    result = nearest_loc_info.location
-                    distance = nearest_location_distance
-                    result_track_no = i
-                    result_segment_no = nearest_loc_info.segment_no
-                    result_point_no = nearest_loc_info.point_no
-
-        if result:
-            return NearestLocationData(result, result_track_no, result_segment_no, result_point_no)
-        return None
 
     def add_elevation(self, delta: float) -> None:
         """
