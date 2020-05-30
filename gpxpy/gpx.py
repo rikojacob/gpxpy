@@ -1905,7 +1905,7 @@ class GPXTrack:
             return None
 
         allpoints= [ NearestLocationData(self.segments[seg].points[pt_no], -1, seg, pt_no) for
-                     seg in range(len(self.segments)) for pt_no in range(len(self.segments[seg].points))]
+                     seg in range(len(self.segments)) for pt_no in range(len(self.segments[seg].points)  if self.segments[seg].points else 0) ]
         if len(allpoints) == 0:
             return None
         return min(allpoints,key=lambda x: x.location.distance_2d(location))
