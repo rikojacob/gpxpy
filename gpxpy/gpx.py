@@ -797,7 +797,7 @@ class GPXTrackSegment:
         point_no: int
             Not included in yield if only_points is true
         """
-        for point_no, point in enumerate(self.points):
+        for point_no, point in enumerate(self.points if self.points else []):
             if only_points:
                 yield point
             else:
@@ -1565,8 +1565,8 @@ class GPXTrack:
         point_no : integer
             Index of point. This is suppressed if only_points is True.
         """
-        for segment_no, segment in enumerate(self.segments):
-            for point_no, point in enumerate(segment.points):
+        for segment_no, segment in enumerate(self.segments if self.segments else []):
+            for point_no, point in enumerate(segment.points if segment.points else []):
                 if only_points:
                     yield point
                 else:
@@ -1895,13 +1895,9 @@ class GPXTrack:
 
     def get_nearest_location(self, location: mod_geo.Location) -> Optional[NearestLocationData]:
         """ Returns (location, track_segment_no, track_point_no) for nearest location on track """
-        if not self.segments:
-            return None
-
-        return min( (NearestLocationData(self.segments[seg].points[pt_no], -1, seg, pt_no) for
-                      seg in range(len(self.segments)) for pt_no in range(len(self.segments[seg].points)  if self.segments[seg].points else 0) )
-                    ,key=lambda x: x.location.distance_2d(location)
-                    ,default=None)
+        return min((NearestLocationData(pt, tr, seg, pt_no) for (pt,tr, seg, pt_no) in self.walk())
+                   ,key=lambda x: x.location.distance_2d(location) if x is not None else float('INF')
+                   ,default=None)
         
     def clone(self) -> "GPXTrack":
         return mod_copy.deepcopy(self)
@@ -2319,9 +2315,9 @@ class GPX:
         point_no : integer
             Index of point. This is suppressed if only_points is True.
         """
-        for track_no, track in enumerate(self.tracks):
-            for segment_no, segment in enumerate(track.segments):
-                for point_no, point in enumerate(segment.points):
+        for track_no, track in enumerate(self.tracks if self.tracks else [] ):
+            for segment_no, segment in enumerate(track.segments if track.segments else []):
+                for point_no, point in enumerate(segment.points if segment.points else []):
                     if only_points:
                         yield point
                     else:
@@ -2518,11 +2514,7 @@ class GPX:
     def get_nearest_location(self, location: mod_geo.Location) -> Optional[NearestLocationData]:
         """ Returns (location, track_no, track_segment_no, track_point_no) for the
         nearest location on map """
-        if not self.tracks:
-            return None
-
-        return min((NearestLocationData(pt, tr, seg, pt_no) for (tr,(pt, _, seg, pt_no)) in
-                        filter(lambda p: p[1], enumerate(trck.get_nearest_location(location) for trck in self.tracks)) )
+        return min((NearestLocationData(pt, tr, seg, pt_no) for (pt,tr, seg, pt_no) in self.walk())
                    ,key=lambda x: x.location.distance_2d(location) if x is not None else float('INF')
                    ,default=None)
 
